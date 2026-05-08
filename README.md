@@ -39,3 +39,16 @@ Tratamento de otite em cão 30min
 Cirurgia de remoção de tumor cutâneo 90min
 Resgate emocional: socialização de gato feral 60min
 Avaliação ortopédica em cão com displasia 45min
+
+
+
+# Resultado esperado (formato de saída)
+Consultório 1:
+08:00 [atendimento] [duração]
+...
+11:30 Higienização
+13:30 [atendimento] [duração]
+...
+17:XX Reunião de encerramento
+
+Consultório 2:
