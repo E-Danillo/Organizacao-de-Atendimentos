@@ -1,68 +1,88 @@
-const { organizarAtendimentos } = require("../organizador")
+const { parseLinha } = require("../parser")
+const {
+    organizarAtendimentos,
+    MANHA_FIM,
+    REUNIAO_MINIMA,
+    REUNIAO_MAXIMA
+} = require("../organizador")
 
-test("deve separar atendimentos sem conflito em consultórios diferentes", () => {
+test("deve transformar atendimento normal em objeto com duração", () => {
+    const resultado = parseLinha("Castração de gato adulto 90min")
 
-    const input = [
-        {
-            nome: "Ana",
-            inicio: 540,
-            fim: 600,
-            tipo: "NORMAL"
-        },
-        {
-            nome: "Bruno",
-            inicio: 550,
-            fim: 610,
-            tipo: "NORMAL"
-        }
-    ]
-
-    const resultado = organizarAtendimentos(input)
-
-    expect(resultado.length).toBe(2)
+    expect(resultado).toEqual({
+        nome: "Castração de gato adulto",
+        duracao: 90,
+        tipo: "NORMAL"
+    })
 })
 
-test("deve reutilizar o mesmo consultório quando não há conflito", () => {
+test("deve transformar atendimento expresso em duração de 10 minutos", () => {
+    const resultado = parseLinha("Aplicação de vacina antirrábica expresso")
 
-    const input = [
-        {
-            nome: "Ana",
-            inicio: 540,
-            fim: 600,
-            tipo: "NORMAL"
-        },
-        {
-            nome: "Bruno",
-            inicio: 600,
-            fim: 650,
-            tipo: "NORMAL"
-        }
-    ]
-
-    const resultado = organizarAtendimentos(input)
-
-    expect(resultado.length).toBe(1)
+    expect(resultado).toEqual({
+        nome: "Aplicação de vacina antirrábica",
+        duracao: 10,
+        tipo: "EXPRESSO"
+    })
 })
 
-test("deve priorizar expressos na ordenação", () => {
-
-    const input = [
-        {
-            nome: "Normal",
-            inicio: 540,
-            fim: 600,
-            tipo: "NORMAL"
-        },
-        {
-            nome: "Expresso",
-            inicio: 530,
-            fim: 550,
-            tipo: "EXPRESSO"
-        }
+test("não deve ultrapassar o horário final da manhã", () => {
+    const atendimentos = [
+        { nome: "Cirurgia A", duracao: 120, tipo: "NORMAL" },
+        { nome: "Cirurgia B", duracao: 90, tipo: "NORMAL" },
+        { nome: "Consulta C", duracao: 60, tipo: "NORMAL" }
     ]
 
-    const resultado = organizarAtendimentos(input)
+    const resultado = organizarAtendimentos(atendimentos)
 
-    // expresso deve vir primeiro no processamento
-    expect(resultado[0][0].tipo).toBe("EXPRESSO")
+    resultado.forEach(consultorio => {
+        consultorio.manha.forEach(atendimento => {
+            expect(atendimento.fim).toBeLessThanOrEqual(MANHA_FIM)
+        })
+    })
+})
+
+test("deve marcar reunião depois das 17h e antes das 18h", () => {
+    const atendimentos = [
+        { nome: "Consulta A", duracao: 60, tipo: "NORMAL" },
+        { nome: "Consulta B", duracao: 60, tipo: "NORMAL" },
+        { nome: "Consulta C", duracao: 60, tipo: "NORMAL" }
+    ]
+
+    const resultado = organizarAtendimentos(atendimentos)
+
+    resultado.forEach(consultorio => {
+        expect(consultorio.reuniao).toBeGreaterThanOrEqual(REUNIAO_MINIMA)
+        expect(consultorio.reuniao).toBeLessThan(REUNIAO_MAXIMA)
+    })
+})
+
+test("deve abrir novo consultório quando não houver espaço", () => {
+    const atendimentos = [
+        { nome: "Procedimento A", duracao: 120, tipo: "NORMAL" },
+        { nome: "Procedimento B", duracao: 120, tipo: "NORMAL" },
+        { nome: "Procedimento C", duracao: 120, tipo: "NORMAL" },
+        { nome: "Procedimento D", duracao: 120, tipo: "NORMAL" }
+    ]
+
+    const resultado = organizarAtendimentos(atendimentos)
+
+    expect(resultado.length).toBeGreaterThan(1)
+})
+
+test("deve organizar todos os atendimentos sem perder nenhum", () => {
+    const atendimentos = [
+        { nome: "A", duracao: 90, tipo: "NORMAL" },
+        { nome: "B", duracao: 45, tipo: "NORMAL" },
+        { nome: "C", duracao: 10, tipo: "EXPRESSO" },
+        { nome: "D", duracao: 60, tipo: "NORMAL" }
+    ]
+
+    const resultado = organizarAtendimentos(atendimentos)
+
+    const totalOrganizado = resultado.reduce((total, consultorio) => {
+        return total + consultorio.manha.length + consultorio.tarde.length
+    }, 0)
+
+    expect(totalOrganizado).toBe(atendimentos.length)
 })

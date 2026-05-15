@@ -1,51 +1,120 @@
-function organizarAtendimentos(atendimentos) {
+const MANHA_INICIO = 8 * 60
+const MANHA_FIM = 11 * 60 + 30
 
-    atendimentos.sort((a, b) => {
+const TARDE_INICIO = 13 * 60 + 30
 
-        // EXPRESSOS têm prioridade
-        if (a.tipo === "EXPRESSO" && b.tipo !== "EXPRESSO") {
-            return -1
-        }
+const REUNIAO_MINIMA = 17 * 60 + 1
+const REUNIAO_MAXIMA = 18 * 60
 
-        if (b.tipo === "EXPRESSO" && a.tipo !== "EXPRESSO") {
-            return 1
-        }
+function criarConsultorio() {
+    return {
+        manha: [],
+        tarde: [],
+        proximoHorarioManha: MANHA_INICIO,
+        proximoHorarioTarde: TARDE_INICIO,
+        higienizacao: MANHA_FIM,
+        reuniao: REUNIAO_MINIMA
+    }
+}
 
-        // Depois ordena por horário
-        return a.inicio - b.inicio
+function encaixarNaManha(consultorio, atendimento) {
+    const inicio = consultorio.proximoHorarioManha
+    const fim = inicio + atendimento.duracao
+
+    if (fim > MANHA_FIM) {
+        return false
+    }
+
+    consultorio.manha.push({
+        ...atendimento,
+        inicio,
+        fim
     })
+
+    consultorio.proximoHorarioManha = fim
+
+    return true
+}
+
+function encaixarNaTarde(consultorio, atendimento) {
+    const inicio = consultorio.proximoHorarioTarde
+    const fim = inicio + atendimento.duracao
+
+    if (fim >= REUNIAO_MAXIMA) {
+        return false
+    }
+
+    consultorio.tarde.push({
+        ...atendimento,
+        inicio,
+        fim
+    })
+
+    consultorio.proximoHorarioTarde = fim
+    consultorio.reuniao = Math.max(consultorio.proximoHorarioTarde, REUNIAO_MINIMA)
+
+    return true
+}
+
+function encaixarAtendimento(consultorio, atendimento) {
+    if (encaixarNaManha(consultorio, atendimento)) {
+        return true
+    }
+
+    if (encaixarNaTarde(consultorio, atendimento)) {
+        return true
+    }
+
+    return false
+}
+
+function finalizarConsultorio(consultorio) {
+    return {
+        manha: consultorio.manha,
+        tarde: consultorio.tarde,
+        higienizacao: consultorio.higienizacao,
+        reuniao: Math.max(consultorio.proximoHorarioTarde, REUNIAO_MINIMA)
+    }
+}
+
+function organizarAtendimentos(atendimentos) {
+    const lista = atendimentos
+        .filter(atendimento => atendimento !== null)
+        .sort((a, b) => b.duracao - a.duracao)
 
     const consultorios = []
 
-    for (const atendimento of atendimentos) {
-
+    for (const atendimento of lista) {
         let colocado = false
 
         for (const consultorio of consultorios) {
-
-            const ultimoAtendimento =
-                consultorio[consultorio.length - 1]
-
-            // Se não houver conflito de horário
-            if (ultimoAtendimento.fim <= atendimento.inicio) {
-
-                consultorio.push(atendimento)
-
+            if (encaixarAtendimento(consultorio, atendimento)) {
                 colocado = true
-
                 break
             }
         }
 
-        // Se não conseguiu encaixar
         if (!colocado) {
-            consultorios.push([atendimento])
+            const novoConsultorio = criarConsultorio()
+
+            if (!encaixarAtendimento(novoConsultorio, atendimento)) {
+                throw new Error(
+                    `Atendimento muito longo para caber em uma sessão: ${atendimento.nome}`
+                )
+            }
+
+            consultorios.push(novoConsultorio)
         }
     }
 
-    return consultorios
+    return consultorios.map(finalizarConsultorio)
 }
 
 module.exports = {
-    organizarAtendimentos
+    organizarAtendimentos,
+    MANHA_INICIO,
+    MANHA_FIM,
+    TARDE_INICIO,
+    REUNIAO_MINIMA,
+    REUNIAO_MAXIMA
 }

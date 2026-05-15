@@ -2,148 +2,252 @@
 
 ## Parte 1 — Modelagem do problema
 
-### 1. Classificação do problema
+### 1. Como classifiquei esse problema?
 
-Classifiquei o problema como um **problema de escalonamento (scheduling)**.
+Eu classifiquei esse problema como um problema de **escalonamento de tarefas com restrição de tempo**, com uma ideia parecida com **empacotamento**.
 
-Isso porque:
-- Existem tarefas com início e fim (atendimentos)
-- Há recursos limitados (consultórios)
-- É necessário evitar conflitos de horário
-- O objetivo é organizar a alocação temporal dos recursos
+No começo, eu pensei nele como uma agenda: existem vários atendimentos, cada um com uma duração, e eu preciso colocá-los em horários válidos. Porém, diferente de uma agenda comum, os horários dos atendimentos não vêm prontos no arquivo. O próprio programa precisa decidir onde cada atendimento começa.
 
-Esse tipo de problema é comum em sistemas que lidam com agenda e distribuição de tarefas ao longo do tempo.
+Também existe uma parte parecida com empacotamento, porque cada consultório funciona como um espaço limitado de tempo. Um consultório tem uma sessão de manhã, das 08:00 até 11:30, e uma sessão de tarde, a partir das 13:30. Então eu preciso encaixar os atendimentos nesses blocos, sem ultrapassar os limites.
+
+Por isso, eu não tratei o problema como apenas "ordenar horários". O programa precisa montar uma agenda do zero, respeitando a capacidade de cada sessão.
 
 ---
 
-### 2. Problema clássico semelhante
+### 2. Semelhança com problemas clássicos da computação
 
-O problema se assemelha ao **Interval Scheduling / Job Scheduling**.
+Esse problema lembra o **Bin Packing Problem**.
 
-A analogia é:
+No Bin Packing, temos itens de tamanhos diferentes e tentamos colocá-los em caixas com capacidade limitada. A ideia é usar o menor número possível de caixas.
 
-- cada atendimento = uma tarefa com intervalo de tempo
-- cada consultório = um recurso disponível
-- tarefas não podem se sobrepor no mesmo recurso
+Neste desafio:
 
-O objetivo é distribuir os intervalos de forma eficiente.
+- cada atendimento é como um item;
+- a duração do atendimento é o tamanho do item;
+- cada consultório é como uma caixa;
+- a manhã e a tarde são os espaços disponíveis dentro dessa caixa.
 
----
+Por exemplo, um atendimento de 120 minutos ocupa muito mais espaço na agenda do que um atendimento expresso de 10 minutos. Se eu colocar muitos atendimentos grandes primeiro, pode sobrar pouco espaço para outros. Então existe uma preocupação em distribuir bem as durações.
 
-### 3. Estruturas de dados utilizadas
-
-Utilizei principalmente:
-
-- **Array**
-  - para armazenar lista de atendimentos
-  - para representar consultórios e suas agendas
-
-- **Objetos**
-  - para representar cada atendimento com `nome`, `inicio`, `fim` e `tipo`
-
-Essas estruturas foram escolhidas por simplicidade e facilidade de manipulação.
-
-Alternativas como heaps ou filas de prioridade poderiam ser usadas, mas não eram necessárias para o escopo do problema.
+Também existe semelhança com **scheduling**, ou escalonamento, porque além de escolher o consultório, o programa também define a ordem e o horário de início de cada atendimento.
 
 ---
 
-## Parte 2 — Estratégia algorítmica
+### 3. Estruturas de dados escolhidas
 
-### 4. Descrição do algoritmo
+Para representar um atendimento, usei um objeto com `nome`, `duracao` e `tipo`.
 
-O algoritmo funciona da seguinte forma:
+Exemplo:
 
-1. Leitura dos atendimentos do arquivo de entrada
-2. Conversão dos horários para minutos
-3. Ordenação dos atendimentos:
-   - prioridade para EXPRESSO
-   - depois por horário de início
-4. Criação de uma lista vazia de consultórios
-5. Para cada atendimento:
-   - tenta encaixar no primeiro consultório disponível
-   - se houver conflito, testa o próximo
-   - se nenhum servir, cria um novo consultório
-6. Retorno da organização final
+```js
+{
+    nome: "Castração de gato adulto",
+    duracao: 90,
+    tipo: "NORMAL"
+}
 
----
+Escolhi objeto porque fica fácil entender o que cada valor significa. Em vez de usar um array como ["Castração", 90, "NORMAL"], eu consigo acessar diretamente atendimento.nome e atendimento.duracao, deixando o código mais legível.
 
-### 5. Tipo de abordagem
+Para representar um consultório, usei um objeto com duas listas principais:
 
-A solução é uma **abordagem gulosa (greedy)**.
+{
+    manha: [],
+    tarde: [],
+    proximoHorarioManha: 480,
+    proximoHorarioTarde: 810,
+    higienizacao: 690,
+    reuniao: 1021
+}
 
-Isso porque:
-- decisões são tomadas localmente
-- não há revisão de decisões anteriores
-- busca uma solução eficiente, não necessariamente ótima global
+A lista manha guarda os atendimentos encaixados na sessão da manhã.
+A lista tarde guarda os atendimentos encaixados na sessão da tarde.
 
----
+Também guardei proximoHorarioManha e proximoHorarioTarde, porque o programa precisa saber qual é o próximo horário livre naquela sessão.
 
-### 6. Existe caso não ótimo?
+Os horários foram salvos em minutos. Por exemplo:
 
-Sim.
+08:00 vira 480;
+11:30 vira 690;
+13:30 vira 810;
+17:01 vira 1021.
 
-Como o algoritmo é guloso, pode existir casos em que ele não encontra a solução com o menor número possível de consultórios.
+Eu escolhi trabalhar com minutos porque facilita muito os cálculos. Para saber o fim de um atendimento, basta fazer:
 
-Isso ocorre porque decisões locais não garantem otimização global.
+fim = inicio + atendimento.duracao
 
----
+Se eu tivesse guardado os horários como texto, por exemplo "08:00", teria que converter toda vez antes de somar. Isso deixaria o código mais trabalhoso e mais sujeito a erro.
 
-### 7. Complexidade do algoritmo
+Parte 2 — Estratégia algorítmica
+4. Descrição do algoritmo em linguagem natural
 
-- Ordenação: O(n log n)
-- Distribuição: O(n²) no pior caso
+O programa funciona em etapas.
 
-Complexidade total:
+Primeiro, ele lê o arquivo atendimentos.txt.
+
+Depois, cada linha do arquivo passa pelo parser. O parser identifica se o atendimento é normal ou expresso.
+
+Se a linha termina com expresso, o programa entende que a duração é de 10 minutos.
+Por exemplo:
+
+Aplicação de vacina antirrábica expresso
+
+vira um objeto com duração 10.
+
+Se a linha termina com algo como 90min, o programa extrai o número e usa como duração.
+
+Depois disso, o organizador recebe a lista de atendimentos. Antes de distribuir, ele ordena os atendimentos do maior para o menor tempo de duração. Eu fiz isso porque atendimentos longos são mais difíceis de encaixar. Se eu deixar eles para o final, pode acontecer de sobrarem apenas buracos pequenos na agenda.
+
+Em seguida, o programa percorre os atendimentos um por um.
+
+Para cada atendimento, ele tenta encaixar primeiro em algum consultório já existente.
+
+Dentro de um consultório, ele tenta primeiro a manhã. Se não couber na manhã, tenta a tarde. Se não couber nem na manhã nem na tarde daquele consultório, ele testa o próximo consultório.
+
+Se o atendimento não couber em nenhum consultório existente, o programa abre um novo consultório e coloca o atendimento nele.
+
+No final, o programa imprime a agenda de cada consultório, mostrando:
+
+atendimentos da manhã;
+higienização às 11:30;
+atendimentos da tarde;
+reunião de encerramento depois das 17:00 e antes das 18:00.
+5. Minha solução é gulosa, exata ou heurística?
+
+Minha solução é gulosa com heurística.
+
+Ela é gulosa porque toma decisões locais. Quando o programa encontra o primeiro consultório onde o atendimento cabe, ele coloca o atendimento ali e não tenta reorganizar tudo depois.
+
+Ela também usa uma heurística chamada First Fit Decreasing. Isso significa que eu ordeno os atendimentos do maior para o menor e depois tento encaixar cada um no primeiro espaço disponível.
+
+Eu escolhi essa abordagem porque ela combina com o tamanho do desafio. Uma solução exata teria que testar várias combinações possíveis de atendimentos, o que deixaria o código bem mais complexo.
+
+Como o objetivo era criar uma solução funcional, explicável e adequada para um desafio júnior, preferi uma estratégia que respeita as regras e mantém o código simples.
+
+6. Existe alguma entrada em que o algoritmo não encontra a melhor solução possível?
+
+Sim. Como minha solução é gulosa, ela não garante a menor quantidade possível de consultórios em todos os casos.
+
+Um exemplo simples:
+
+Atendimento A 110min
+Atendimento B 100min
+Atendimento C 100min
+Atendimento D 60min
+Atendimento E 50min
+Atendimento F 50min
+
+Como o algoritmo coloca primeiro os maiores atendimentos e aceita o primeiro encaixe possível, ele pode acabar ocupando os espaços de uma forma que parece boa no momento, mas que deixa sobras difíceis de aproveitar.
+
+Uma solução mais completa poderia testar várias combinações, por exemplo tentando colocar um atendimento de 100 minutos junto com dois de 50 minutos, dependendo do espaço disponível.
+
+Meu algoritmo não faz esse tipo de troca. Depois que um atendimento é colocado, ele não volta atrás. Isso torna a solução mais simples e rápida, mas pode impedir que ela encontre a distribuição perfeita em alguns casos.
+
+7. Complexidade de tempo aproximada
+
+A primeira etapa importante é a ordenação dos atendimentos por duração.
+
+Ordenar uma lista com n atendimentos tem complexidade:
+
+O(n log n)
+
+Depois disso, o programa percorre todos os atendimentos. Para cada atendimento, ele pode precisar verificar vários consultórios até encontrar espaço.
+
+No pior caso, pode acontecer de quase todo atendimento abrir um consultório novo. Assim, para cada atendimento, o programa pode verificar uma quantidade grande de consultórios.
+
+Por isso, a parte de distribuição pode chegar a:
+
+O(n²)
+
+Somando as duas partes:
 
 O(n log n + n²)
 
----
+Como n² cresce mais rápido que n log n, a complexidade aproximada final fica:
 
-## Parte 3 — Decisões de implementação
+O(n²)
 
-### 8. Como decide quantos consultórios abrir?
+Para esse desafio, considerei essa complexidade aceitável, porque o código fica simples e a lista de atendimentos não parece exigir uma solução extremamente otimizada.
 
-Os consultórios são criados dinamicamente.
+Parte 3 — Decisões de implementação
+8. Como o programa decide quantos consultórios abrir?
 
-Um novo consultório só é criado quando nenhum dos existentes pode acomodar o atendimento sem conflito.
+O programa não recebe um número fixo de consultórios.
 
----
+Ele começa com uma lista vazia. Quando chega o primeiro atendimento, como ainda não existe consultório, ele cria o Consultório 1.
 
-### 9. Tratamento de atendimentos expressos
+Depois, para cada novo atendimento, ele tenta usar os consultórios que já existem.
 
-Atendimentos do tipo EXPRESSO têm prioridade na ordenação inicial.
+O critério é:
 
-Isso garante que sejam alocados primeiro, reduzindo risco de conflito.
+tentar encaixar o atendimento em um consultório existente;
+verificar se cabe na manhã;
+se não couber, verificar se cabe na tarde;
+se não couber em nenhum consultório, abrir um novo.
 
----
+Então o número de consultórios surge naturalmente durante a execução. O programa só abre outro consultório quando não existe espaço suficiente nos consultórios atuais.
 
-### 10. Parte mais inteligente da solução
+9. Como tratei os atendimentos expressos?
 
-O ponto principal da solução é a verificação de conflito:
+Eu tratei os atendimentos expressos como atendimentos de 10 minutos.
 
-``if (ultimoAtendimento.fim <= atendimento.inicio)
+Essa decisão veio diretamente do enunciado, que diz que os atendimentos expressos são procedimentos rápidos de 10 minutos, como aplicação de vacina.
 
-Ele permite reutilizar consultórios corretamente, evitando criação desnecessária de novos recursos.
+No parser.js, quando uma linha termina com a palavra expresso, eu removo essa palavra do nome e crio o objeto assim:
 
-Isso é essencial para eficiência do algoritmo.
+{
+    nome: "Aplicação de vacina antirrábica",
+    duracao: 10,
+    tipo: "EXPRESSO"
+}
 
-### 11. Parte que poderia ser melhorada
+Eu mantive o campo tipo: "EXPRESSO" mesmo já tendo a duração, porque isso deixa a informação mais clara. No futuro, se a clínica quiser imprimir os expressos de forma diferente ou dar prioridade para eles, o tipo já estará salvo.
 
-A verificação de consultórios é feita de forma linear:
+10. Parte mais inteligente da solução
 
-pode ser ineficiente com muitos dados
-poderia ser otimizada com uma estrutura de prioridade (heap)
+A parte mais importante da solução é a lógica de encaixe nas sessões.
 
-Melhoria possível:
+No meu código, isso aparece nas funções que tentam colocar um atendimento na manhã ou na tarde.
 
-usar uma fila de prioridade ordenada pelo horário de término
+A ideia principal é calcular:
 
-### 12. Observação final
+inicio = proximoHorarioDaSessao
+fim = inicio + atendimento.duracao
 
-A solução prioriza:
+Depois o programa verifica se esse fim ultrapassa o limite da sessão.
 
-simplicidade
-legibilidade
-facilidade de defesa em entrevista
+Na manhã, o atendimento não pode passar de 11:30.
 
-Mesmo não sendo otimização perfeita, ela é eficiente e robusta para o problema proposto.
+Na tarde, o atendimento não pode impedir que a reunião aconteça antes das 18:00.
+
+Essa parte é a mais inteligente porque transforma as regras do texto em contas simples com minutos. Em vez de trabalhar com várias comparações de texto ou horários formatados, o programa usa números.
+
+Isso deixou a regra mais fácil de implementar e de testar.
+
+11. Parte que poderia ser melhorada
+
+A parte que eu mais melhoraria é a estratégia de distribuição.
+
+Hoje, o programa usa uma estratégia gulosa: coloca o atendimento no primeiro consultório onde ele couber. Isso é simples e funciona, mas não testa se existe uma combinação melhor.
+
+Por exemplo, às vezes colocar um atendimento grande em outro consultório poderia liberar espaço para dois atendimentos menores. O programa atual não percebe isso, porque ele não reorganiza os atendimentos depois de encaixar.
+
+Uma melhoria possível seria usar backtracking, testando várias distribuições diferentes. Outra possibilidade seria usar uma fila de prioridade ou calcular melhor o consultório com menor sobra de tempo.
+
+Mesmo assim, para este desafio, eu preferi manter a solução gulosa porque ela é mais fácil de entender, explicar e manter.
+
+12. Conclusão
+
+A solução foi construída pensando nas regras reais da clínica.
+
+O programa não depende de horários já prontos na entrada. Ele recebe apenas o nome e a duração dos atendimentos, monta os horários automaticamente, separa manhã e tarde, adiciona higienização e calcula a reunião de encerramento.
+
+As principais escolhas foram:
+
+usar minutos para facilitar os cálculos;
+representar atendimentos e consultórios com objetos;
+usar arrays para guardar os atendimentos de cada sessão;
+tratar expressos como 10 minutos;
+ordenar os atendimentos do maior para o menor;
+abrir novos consultórios apenas quando necessário.
+
+A solução não é matematicamente perfeita, mas é prática, legível e adequada para um desafio júnior, porque respeita as regras principais do problema sem deixar o código desnecessariamente complexo.

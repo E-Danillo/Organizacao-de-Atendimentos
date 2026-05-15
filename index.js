@@ -3,27 +3,45 @@ const fs = require("fs")
 const { parseLinha } = require("./parser")
 const { organizarAtendimentos } = require("./organizador")
 
-// Lê o arquivo de entrada
+function minutosParaHora(minutos) {
+    const horas = Math.floor(minutos / 60)
+    const mins = minutos % 60
+
+    return `${String(horas).padStart(2, "0")}:${String(mins).padStart(2, "0")}`
+}
+
 const texto = fs.readFileSync("atendimentos.txt", "utf-8")
 
-// Separa linhas
-const linhas = texto.trim().split("\n")
+const linhas = texto
+    .trim()
+    .split("\n")
+    .filter(linha => linha.trim() !== "")
 
-// Transforma em objetos
 const atendimentos = linhas.map(parseLinha)
 
-// Organiza
-const resultado = organizarAtendimentos(atendimentos)
+const consultorios = organizarAtendimentos(atendimentos)
 
-// Exibe resultado
-resultado.forEach((consultorio, indice) => {
+consultorios.forEach((consultorio, indice) => {
+    console.log(`Consultório ${indice + 1}:`)
 
-    console.log(`\nConsultório ${indice + 1}`)
-
-    consultorio.forEach(atendimento => {
-
+    consultorio.manha.forEach(atendimento => {
         console.log(
-            `${atendimento.nome} | ${atendimento.tipo} | ${atendimento.inicio} -> ${atendimento.fim}`
+            `${minutosParaHora(atendimento.inicio)} ${atendimento.nome} ${atendimento.duracao}min`
         )
     })
+
+    console.log(`${minutosParaHora(consultorio.higienizacao)} Higienização`)
+
+    consultorio.tarde.forEach(atendimento => {
+        console.log(
+            `${minutosParaHora(atendimento.inicio)} ${atendimento.nome} ${atendimento.duracao}min`
+        )
+    })
+
+    console.log(`${minutosParaHora(consultorio.reuniao)} Reunião de encerramento`)
+    console.log("")
 })
+
+module.exports = {
+    minutosParaHora
+}

@@ -1,20 +1,35 @@
-function horaParaMinutos(hora) {
-    const [h, m] = hora.trim().split(":").map(Number)
-    return h * 60 + m
-}
-
 function parseLinha(linha) {
-
     const limpa = linha.trim().replace("\r", "")
 
-    const [nome, inicio, fim, tipo] =
-        limpa.split(",").map(p => p.trim())
+    if (limpa === "") {
+        return null
+    }
+
+    const ehExpresso = limpa.toLowerCase().endsWith("expresso")
+
+    if (ehExpresso) {
+        const nome = limpa.replace(/expresso$/i, "").trim()
+
+        return {
+            nome,
+            duracao: 10,
+            tipo: "EXPRESSO"
+        }
+    }
+
+    const resultado = limpa.match(/^(.*)\s+(\d+)min$/i)
+
+    if (!resultado) {
+        throw new Error(`Linha inválida: ${linha}`)
+    }
+
+    const nome = resultado[1].trim()
+    const duracao = Number(resultado[2])
 
     return {
         nome,
-        inicio: horaParaMinutos(inicio),
-        fim: horaParaMinutos(fim),
-        tipo: tipo.toUpperCase()
+        duracao,
+        tipo: "NORMAL"
     }
 }
 
